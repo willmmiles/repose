@@ -42,7 +42,7 @@ void trace(const char *fmt, ...)
     }
 }
 
-static _noreturn_ void usage(FILE *out)
+static _noreturn_ void usage(FILE *out, const char* program_invocation_short_name)
 {
     fprintf(out, "usage: %s [options] <database> [pkgs|deltas ...]\n", program_invocation_short_name);
     fputs("Options\n"
@@ -451,10 +451,10 @@ int main(int argc, char *argv[])
 
         switch (opt) {
         case 'h':
-            usage(stdout);
+            usage(stdout, argv[0]);
             break;
         case 'V':
-            printf("%s %s\n", program_invocation_short_name, REPOSE_VERSION);
+            printf("%s %s\n", argv[0], REPOSE_VERSION);
             exit(EXIT_SUCCESS);
         case 'v':
             config.verbose += 1;
