@@ -21,6 +21,11 @@ ifneq "$(GIT_DESC)" ""
 VERSION=$(GIT_DESC)
 endif
 
+ifeq "$(EXCLUDE_SIGNING)" ""
+SIGNING_CFLAGS=-DREPOSE_SIGNING
+SIGNING_DEPS=signing.o
+endif
+
 CFLAGS := -std=c11 -g \
 	-Wall -Wextra -pedantic \
 	-Wshadow -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes \
@@ -28,12 +33,13 @@ CFLAGS := -std=c11 -g \
 	-D_GNU_SOURCE \
 	-D_FILE_OFFSET_BITS=64 \
 	-DREPOSE_VERSION=\"$(VERSION)\" \
+	$(SIGNING_CFLAGS) \
 	$(CFLAGS)
 
 PYTEST_FLAGS := --boxed $(PYTEST_FLAGS)
 
 VPATH = src
-LDLIBS = -larchive -lalpm -lgpgme -lcrypto
+LDLIBS = -larchive -lalpm -lcrypto
 PREFIX = /usr
 
 all: repose
@@ -43,8 +49,8 @@ pkginfo.o: $(VPATH)/pkginfo.c
 pkginfo.dot: $(VPATH)/pkginfo.rl
 
 repose: repose.o database.o package.o util.o filecache.o \
-	pkghash.o buffer.o base64.o filters.o signing.o \
-	pkginfo.o desc.o
+	pkghash.o buffer.o base64.o filters.o \
+	pkginfo.o desc.o $(SIGNING_DEPS)
 
 tests: desc.c pkginfo.c
 	py.test tests $(PYTEST_FLAGS)

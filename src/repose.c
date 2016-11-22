@@ -57,7 +57,9 @@ static _noreturn_ void usage(FILE *out, const char* program_invocation_short_nam
           " -r, --root=PATH       set the root for the repository\n"
           " -p, --pool=PATH       set the pool to find packages in\n"
           " -m, --arch=ARCH       the architecture of the database\n"
+#ifdef REPOSE_SIGNING
           " -s, --sign            create a database signature\n"
+#endif
           " -j, --bzip2           filter the archive through bzip2\n"
           " -J, --xz              filter the archive through xz\n"
           " -z, --gzip            filter the archive through gzip\n"
@@ -324,12 +326,15 @@ static void check_signature(struct repo *repo, const char *name)
     _cleanup_free_ char *sig = joinstring(name, ".sig", NULL);
 
     if (faccessat(repo->rootfd, sig, F_OK, 0) == 0) {
+#ifdef REPOSE_SIGNING
         if (gpgme_verify(repo->rootfd, name) < 0) {
             errx(EXIT_FAILURE, "repo signature is invalid or corrupt!");
         } else {
             trace("found a valid signature, will resign...\n");
             config.sign = true;
         }
+#endif
+        ;
     } else if (errno != ENOENT) {
         err(EXIT_FAILURE, "countn't access %s", name);
     }
@@ -430,7 +435,9 @@ int main(int argc, char *argv[])
         { "list",     no_argument,       0, 'l' },
         { "verbose",  no_argument,       0, 'v' },
         { "files",    no_argument,       0, 'f' },
+#ifdef REPOSE_SIGNING
         { "sign",     no_argument,       0, 's' },
+#endif
         { "root",     required_argument, 0, 'r' },
         { "pool",     required_argument, 0, 'p' },
         { "arch",     required_argument, 0, 'm' },
@@ -470,9 +477,11 @@ int main(int argc, char *argv[])
         case 'f':
             files = true;
             break;
+#ifdef REPOSE_SIGNING
         case 's':
             config.sign = true;
             break;
+#endif
         case 'r':
             repo.root = optarg;
             break;

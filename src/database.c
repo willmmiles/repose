@@ -395,9 +395,9 @@ int write_database(struct repo *repo, const char *repo_name, enum contents what)
     trace("writing %s...\n", repo_name);
     check_posix(compile_database(repo, repo_name, what),
                 "failed to write %s database", repo_name);
-
+#ifdef REPOSE_SIGNING
     if (config.sign)
         gpgme_sign(repo->rootfd, repo_name, NULL);
-
+#endif
     return 0;
 }
