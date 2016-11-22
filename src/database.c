@@ -239,47 +239,41 @@ static void write_time(struct buffer *buf, const char *header, time_t val)
     buffer_printf(buf, "%%%s%%\n%ld\n\n", header, val);
 }
 
-#define write_entry(buf, header, val) _Generic((val), \
-    alpm_list_t *: write_list, \
-    char *: write_string, \
-    size_t: write_size, \
-    time_t: write_time)(buf, header, val)
-
 static void compile_depends_entry(struct pkg *pkg, struct buffer *buf)
 {
-    write_entry(buf, "DEPENDS",      pkg->depends);
-    write_entry(buf, "CONFLICTS",    pkg->conflicts);
-    write_entry(buf, "PROVIDES",     pkg->provides);
-    write_entry(buf, "OPTDEPENDS",   pkg->optdepends);
-    write_entry(buf, "MAKEDEPENDS",  pkg->makedepends);
-    write_entry(buf, "CHECKDEPENDS", pkg->checkdepends);
+    write_list(buf, "DEPENDS",      pkg->depends);
+    write_list(buf, "CONFLICTS",    pkg->conflicts);
+    write_list(buf, "PROVIDES",     pkg->provides);
+    write_list(buf, "OPTDEPENDS",   pkg->optdepends);
+    write_list(buf, "MAKEDEPENDS",  pkg->makedepends);
+    write_list(buf, "CHECKDEPENDS", pkg->checkdepends);
 }
 
 static void compile_desc_entry(struct pkg *pkg, struct buffer *buf, int poolfd)
 {
-    write_entry(buf, "FILENAME",  pkg->filename);
-    write_entry(buf, "NAME",      pkg->name);
-    write_entry(buf, "BASE",      pkg->base);
-    write_entry(buf, "VERSION",   pkg->version);
-    write_entry(buf, "DESC",      pkg->desc);
-    write_entry(buf, "GROUPS",    pkg->groups);
-    write_entry(buf, "CSIZE",     pkg->size);
-    write_entry(buf, "ISIZE",     pkg->isize);
+    write_string(buf, "FILENAME",  pkg->filename);
+    write_string(buf, "NAME",      pkg->name);
+    write_string(buf, "BASE",      pkg->base);
+    write_string(buf, "VERSION",   pkg->version);
+    write_string(buf, "DESC",      pkg->desc);
+    write_list(buf, "GROUPS",    pkg->groups);
+    write_size(buf, "CSIZE",     pkg->size);
+    write_size(buf, "ISIZE",     pkg->isize);
 
     if (pkg->base64sig) {
-        write_entry(buf, "PGPSIG", pkg->base64sig);
+        write_string(buf, "PGPSIG", pkg->base64sig);
     } else {
         if (!pkg->sha256sum)
             pkg->sha256sum = sha256_file(poolfd, pkg->filename);
-        write_entry(buf, "SHA256SUM", pkg->sha256sum);
+        write_string(buf, "SHA256SUM", pkg->sha256sum);
     }
 
-    write_entry(buf, "URL",       pkg->url);
-    write_entry(buf, "LICENSE",   pkg->licenses);
-    write_entry(buf, "ARCH",      pkg->arch);
-    write_entry(buf, "BUILDDATE", pkg->builddate);
-    write_entry(buf, "PACKAGER",  pkg->packager);
-    write_entry(buf, "REPLACES",  pkg->replaces);
+    write_string(buf, "URL",       pkg->url);
+    write_list(buf, "LICENSE",   pkg->licenses);
+    write_string(buf, "ARCH",      pkg->arch);
+    write_time(buf, "BUILDDATE", pkg->builddate);
+    write_string(buf, "PACKAGER",  pkg->packager);
+    write_list(buf, "REPLACES",  pkg->replaces);
 }
 
 static void compile_files_entry(struct pkg *pkg, struct buffer *buf, int poolfd)
@@ -292,7 +286,7 @@ static void compile_files_entry(struct pkg *pkg, struct buffer *buf, int poolfd)
         load_package_files(pkg, pkgfd);
     }
 
-    write_entry(buf, "FILES", pkg->files);
+    write_list(buf, "FILES", pkg->files);
 }
 
 static void archive_entry_populate(struct archive_entry *e, unsigned int type,

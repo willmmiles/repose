@@ -165,91 +165,85 @@ static void pkg_set_time(const char *entry, size_t len, time_t *data)
     parse_time(entry, data);
 }
 
-#define pkg_set(entry, len, field) _Generic((field), \
-    alpm_list_t **: pkg_append_list, \
-    char **: pkg_set_string, \
-    size_t *: pkg_set_size, \
-    time_t *: pkg_set_time)(entry, len, field)
-
 void package_set(pkg_t *pkg, enum pkg_entry type, const char *entry, size_t len)
 {
     switch (type) {
     case PKG_FILENAME:
-        pkg_set(entry, len, &pkg->filename);
+        pkg_set_string(entry, len, &pkg->filename);
         break;
     case PKG_PKGNAME:
         if (!pkg->name) {
-            pkg_set(entry, len, &pkg->name);
+            pkg_set_string(entry, len, &pkg->name);
         } else if (!strneq(entry, pkg->name, len)) {
             errx(EXIT_FAILURE, "database entry %%NAME%% and desc record are mismatched!");
         }
         break;
     case PKG_PKGBASE:
-        pkg_set(entry, len, &pkg->base);
+        pkg_set_string(entry, len, &pkg->base);
         break;
     case PKG_VERSION:
         if (!pkg->version) {
-            pkg_set(entry, len, &pkg->version);
+            pkg_set_string(entry, len, &pkg->version);
         } else if (!strneq(entry, pkg->version, len)) {
             errx(EXIT_FAILURE, "database entry %%VERSION%% and desc record are mismatched!");
         }
         break;
     case PKG_DESCRIPTION:
-        pkg_set(entry, len, &pkg->desc);
+        pkg_set_string(entry, len, &pkg->desc);
         break;
     case PKG_GROUPS:
-        pkg_set(entry, len, &pkg->groups);
+        pkg_append_list(entry, len, &pkg->groups);
         break;
     case PKG_CSIZE:
-        pkg_set(entry, len, &pkg->size);
+        pkg_set_size(entry, len, &pkg->size);
         break;
     case PKG_ISIZE:
-        pkg_set(entry, len, &pkg->isize);
+        pkg_set_size(entry, len, &pkg->isize);
         break;
     case PKG_SHA256SUM:
-        pkg_set(entry, len, &pkg->sha256sum);
+        pkg_set_string(entry, len, &pkg->sha256sum);
         break;
     case PKG_PGPSIG:
-        pkg_set(entry, len, &pkg->base64sig);
+        pkg_set_string(entry, len, &pkg->base64sig);
         break;
     case PKG_URL:
-        pkg_set(entry, len, &pkg->url);
+        pkg_set_string(entry, len, &pkg->url);
         break;
     case PKG_LICENSE:
-        pkg_set(entry, len, &pkg->licenses);
+        pkg_append_list(entry, len, &pkg->licenses);
         break;
     case PKG_ARCH:
-        pkg_set(entry, len, &pkg->arch);
+        pkg_set_string(entry, len, &pkg->arch);
         break;
     case PKG_BUILDDATE:
-        pkg_set(entry, len, &pkg->builddate);
+        pkg_set_time(entry, len, &pkg->builddate);
         break;
     case PKG_PACKAGER:
-        pkg_set(entry, len, &pkg->packager);
+        pkg_set_string(entry, len, &pkg->packager);
         break;
     case PKG_REPLACES:
-        pkg_set(entry, len, &pkg->replaces);
+        pkg_append_list(entry, len, &pkg->replaces);
         break;
     case PKG_DEPENDS:
-        pkg_set(entry, len, &pkg->depends);
+        pkg_append_list(entry, len, &pkg->depends);
         break;
     case PKG_CONFLICTS:
-        pkg_set(entry, len, &pkg->conflicts);
+        pkg_append_list(entry, len, &pkg->conflicts);
         break;
     case PKG_PROVIDES:
-        pkg_set(entry, len, &pkg->provides);
+        pkg_append_list(entry, len, &pkg->provides);
         break;
     case PKG_OPTDEPENDS:
-        pkg_set(entry, len, &pkg->optdepends);
+        pkg_append_list(entry, len, &pkg->optdepends);
         break;
     case PKG_MAKEDEPENDS:
-        pkg_set(entry, len, &pkg->makedepends);
+        pkg_append_list(entry, len, &pkg->makedepends);
         break;
     case PKG_CHECKDEPENDS:
-        pkg_set(entry, len, &pkg->checkdepends);
+        pkg_append_list(entry, len, &pkg->checkdepends);
         break;
     case PKG_FILES:
-        pkg_set(entry, len, &pkg->files);
+        pkg_append_list(entry, len, &pkg->files);
         break;
     default:
         errx(EXIT_FAILURE, "parse failure");
