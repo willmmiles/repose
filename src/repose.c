@@ -336,7 +336,7 @@ static void check_signature(struct repo *repo, const char *name)
 #endif
         ;
     } else if (errno != ENOENT) {
-        err(EXIT_FAILURE, "countn't access %s", name);
+        err(EXIT_FAILURE, "couldn't access %s", name);
     }
 }
 
