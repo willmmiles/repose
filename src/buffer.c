@@ -18,7 +18,8 @@ static inline size_t next_power(size_t x)
 static inline int addsz(size_t a, size_t b, size_t *r)
 {
     errno = 0;
-    if (_unlikely_(__builtin_add_overflow(a, b, r)))
+    *r = a + b;
+    if (_unlikely_((SIZE_MAX - a) < b))
         errno = ERANGE;
     return -errno;
 }
