@@ -192,3 +192,260 @@ char *strstrip(char *s)
     *e = 0;
     return s;
 }
+
+
+#ifdef __QNX__
+
+// QNX shims for glibc and posix 2008.1 functions
+// efficiency not guaranteed
+#include <sys/iomgr.h>
+
+static const char* getfdpath(int dirfd, const char* newpath) {
+    if (newpath[0] == '/') return newpath;
+
+    char dir_path[PATH_MAX];
+
+    int path_size = iofdinfo(dirfd,0,NULL,dir_path,PATH_MAX);
+    if (path_size < 1) return NULL;
+    --path_size;    // includes null byte
+    //fprintf(stderr,"gfdp: %d %s\n",path_size,dir_path);
+
+    // Append 'newpath'
+    if (dir_path[path_size-1] != '/') {
+        dir_path[path_size] = '/';
+        ++path_size;
+    }
+    strncpy(dir_path + path_size, newpath, sizeof(dir_path) - (path_size+1));
+
+    //fprintf(stderr,"gfdp: %d %s\n",PATH_MAX - (path_size+1),dir_path);
+
+    return strdup(dir_path);
+    //return realpath(dir_path, NULL);
+}
+
+int openat(int dirfd, const char *pathname, int flags, ...) {
+    va_list x_arg;
+    int open_opts;
+    int result = -1;
+    const char* tgtpath = getfdpath(dirfd, pathname);
+    if (tgtpath) {
+        // Retrieve the last argument
+        va_start(x_arg, flags);
+        open_opts = va_arg(x_arg, int);
+        va_end(x_arg);
+
+        result = open(tgtpath, flags, open_opts);
+        //fprintf(stderr,"Openat: %s -> %s %d %d -> %d\n",pathname, tgtpath,flags,open_opts, result);
+
+        if (tgtpath != pathname) {
+            int etmp = errno;
+            free((void*)tgtpath);
+            errno = etmp;
+        }
+    };
+
+    return result;
+}
+
+int symlinkat(const char *oldpath, int newdirfd, const char *newpath) {
+    int result = -1;
+    const char* tgtpath = getfdpath(newdirfd, newpath);
+    if (tgtpath) {
+        result = symlink(oldpath,tgtpath);
+        if (tgtpath != newpath) {
+            int etmp = errno;
+            free((void*)tgtpath);
+            errno = etmp;
+        }
+    };
+    return result;
+}
+
+int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag) {
+    int result = -1;
+    const char* tgtpath = getfdpath(fd, path);
+    if (tgtpath) {
+        if (flag & AT_SYMLINK_NOFOLLOW) {
+            result = lstat(tgtpath, buf);
+        } else {
+            result = stat(tgtpath, buf);
+        }
+        if (tgtpath != path) {
+            int etmp = errno;
+            free((void*)tgtpath);
+            errno = etmp;
+        }
+    };
+    return result;
+}
+
+int faccessat(int fd, const char *path, int mode, int flags) {
+    // NB: FLAGS ARE IGNORED
+    (void) flags;
+    int result = -1;
+    const char* tgtpath = getfdpath(fd, path);
+    if (tgtpath) {
+        result = access(tgtpath, mode);
+        if (tgtpath != path) {
+            int etmp = errno;
+            free((void*)tgtpath);
+            errno = etmp;
+        }
+    };
+    return result;
+}
+
+
+int unlinkat(int fd, const char *path, int flags) {
+    int result = -1;
+    const char* tgtpath = getfdpath(fd, path);
+    if (tgtpath) {
+        result = unlink(tgtpath);
+        if (tgtpath != path) {
+            int etmp = errno;
+            free((void*)tgtpath);
+            errno = etmp;
+        }
+    };
+    return result;
+}
+
+DIR *fdopendir(int fd) {
+    char dir_path[PATH_MAX];
+    int path_size = iofdinfo(fd,0,NULL,dir_path,PATH_MAX);
+    if (path_size < 1) return NULL;
+
+    return opendir(dir_path);
+}
+
+int copy_file(int dest, int src) {
+	int32_t			r, w, ww;
+	size_t len;
+	char* bptr = NULL;
+
+	errno = 0;
+
+	for (len=(16*1024)+(4*1024);(!bptr) && (len>(4*1024));) {
+		bptr = malloc(len);
+		if (!bptr) len-=1024;
+	}
+
+    if (!bptr) return -1;
+
+	for (r=read(src,bptr,len);r!=-1 && r>0;r=read(src,bptr,len)) {
+		w=0;
+		#ifdef DIAG
+		fprintf(stderr,"read %d bytes\n",r);
+		#endif
+
+		do {
+			#ifdef DIAG
+			fprintf(stderr,"trying to write %d bytes\n",r-w);
+			#endif
+			w+=(ww=write(dest,bptr+w,r-w));
+			#ifdef DIAG
+			fprintf(stderr,"wrote %d bytes (%d now of %d)\n",ww,w,r);
+			#endif
+			if (ww==-1) break;
+		} while (w<r);
+
+		if (ww==-1) {
+		    r = -1;
+		    break;
+		}
+	} /* loop */
+
+    free(bptr);
+
+	return r;
+}
+
+ssize_t getline(char **lineptr, size_t *n, FILE *stream) {
+    ssize_t count = 0;
+    char* buf = NULL;
+    ssize_t buf_size = 0;
+    int err = 0;
+
+    if (!lineptr || !n) return -EINVAL;
+
+    buf = *lineptr;
+    buf_size = *n;
+
+    for(;;) {
+        int ch = fgetc(stream);
+
+        if (ch == EOF) break;
+
+        if ((count+2) > buf_size) {
+            size_t new_buf_size = buf_size ? (buf_size * 2) : 32;
+            buf = realloc(buf, new_buf_size);
+            if (!buf) { err = -ENOMEM; break; }
+            buf_size = new_buf_size;
+        };
+
+        buf[count++] = ch;
+        buf[count] = 0;
+
+        if (ch == '\n') break;
+        if (count > SSIZE_MAX) {
+            err = -EOVERFLOW;
+            break;
+        }
+    };
+
+    // Update output
+    *lineptr = buf;
+    *n = count;
+
+    if (err != 0) return err;
+    if (ferror(stream)) return 0;
+    if (feof(stream) && (count == 0)) {
+        if (!buf) buf = malloc(4);
+        if (!buf) return -ENOMEM;
+        buf[0] = 0;
+        *lineptr = buf;
+    }
+/*
+    if (count) {
+        fprintf(stderr,"getline: %d %s\n",count,buf);
+    }
+*/
+    return count;
+}
+
+char *strchrnul(const char *s, int c) {
+    char* r = strchr(s,c);
+    if (!r) r = (char*) (s + strlen(s));
+    return r;
+}
+
+void *memrchr(const void *s, int c, size_t n) {
+    const char* p;
+    for (p = (const char*)s + (n-1); p >= (const char*) s; --p) {
+        if (*p == c) return (void*) p;
+    }
+    return NULL;
+}
+
+char *strndup(const char *s, size_t n) {
+    char* r = malloc(n+1);
+
+    if (r) {
+        char* p = r;
+        r[n] = 0;
+        for(p = r; (*s != 0) && (n > 0); ++s, ++p, --n) {
+            *p = *s;
+        }
+        // Copy null terminator
+        *p = *s;
+    }
+    return r;
+}
+
+char *stpcpy(char *dest, const char *src) {
+    char* c = strcpy(dest,src);
+    return c+strlen(dest);
+}
+
+
+#endif

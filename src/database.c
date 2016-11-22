@@ -236,7 +236,11 @@ static void write_size(struct buffer *buf, const char *header, size_t val)
 
 static void write_time(struct buffer *buf, const char *header, time_t val)
 {
+#ifdef __QNX__
+    buffer_printf(buf, "%%%s%%\n%d\n\n", header, val);
+#else
     buffer_printf(buf, "%%%s%%\n%ld\n\n", header, val);
+#endif
 }
 
 static void compile_depends_entry(struct pkg *pkg, struct buffer *buf)

@@ -51,3 +51,33 @@ int parse_time(const char *str, time_t *out);
 
 char *strstrip(char *s);
 char *hex_representation(unsigned char *bytes, size_t size);
+
+#ifdef __QNX__
+
+#define O_DIRECTORY 0
+
+#define AT_SYMLINK_NOFOLLOW 1
+int openat(int dirfd, const char *pathname, int flags, ...);
+int symlinkat(const char *oldpath, int newdirfd, const char *newpath);
+int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag);
+int faccessat(int dirfd, const char *pathname, int mode, int flags);
+int unlinkat(int dirfd, const char *pathname, int flags);
+
+DIR *fdopendir(int fd);
+
+int copy_file(int dest, int src);
+#define canonicalize_file_name(fname) realpath(fname,NULL);
+
+ssize_t getline(char **lineptr, size_t *n, FILE *stream);
+
+char *strchrnul(const char *s, int c);
+void *memrchr(const void *s, int c, size_t n);
+char *strndup(const char *s, size_t n);
+char *stpcpy(char *dest, const char *src);
+
+#else /* ! QNX */
+
+#define copy_file(dest, src) ioctl(dest, BTRFS_IOC_CLONE, src);
+
+#endif
+

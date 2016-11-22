@@ -17,7 +17,9 @@
 #include <sys/utsname.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-#include <linux/btrfs.h>
+#ifdef __linux__
+  #include <linux/btrfs.h>
+#endif
 #include <locale.h>
 
 #include "database.h"
@@ -114,7 +116,7 @@ static int clone_file(const struct repo *repo, const char *filename)
     if (dest < 0)
 	return dest;
 
-    return ioctl(dest, BTRFS_IOC_CLONE, src);
+    return copy_file(dest, src);
 }
 
 static int symlink_file(const struct repo *repo, const char *path1, const char *path2)

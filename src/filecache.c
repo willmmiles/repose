@@ -15,9 +15,37 @@
 #include "filters.h"
 #include "util.h"
 
-static inline bool is_file(int d_type)
+static inline bool is_file(const struct dirent *dp)
 {
-    return d_type == DT_REG || d_type == DT_UNKNOWN;
+#ifdef __QNX__
+    struct dirent_extra* extra;
+    for( extra = _DEXTRA_FIRST(dp);
+    _DEXTRA_VALID(extra, dp);
+    extra = _DEXTRA_NEXT(extra)) {
+      switch(extra->d_type) {
+        /* No data */
+         case _DTYPE_NONE  :
+            break;
+         /* Data includes information as returned by stat() */
+         case _DTYPE_STAT  :
+            {
+                struct dirent_extra_stat* ex = (struct dirent_extra_stat*) extra;
+                return S_ISREG(ex->d_stat.st_mode);
+            }
+            break;
+         /* Data includes information as returned by lstat() */
+         case _DTYPE_LSTAT :
+            {
+                struct dirent_extra_stat* ex = (struct dirent_extra_stat*) extra;
+                return S_ISREG(ex->d_stat.st_mode);
+            }
+            break;
+      }
+    }
+    return false;
+#else
+    return dp->d_type == DT_REG || d_type == DT_UNKNOWN;
+#endif
 }
 
 static inline alpm_pkghash_t *pkgcache_add(alpm_pkghash_t *cache, struct pkg *pkg)
@@ -41,7 +69,7 @@ static size_t get_filecache_size(DIR *dirp)
     size_t size = 0;
 
     for (dp = readdir(dirp); dp; dp = readdir(dirp)) {
-        if (is_file(dp->d_type))
+        if (is_file(dp))
             ++size;
     }
 
@@ -76,7 +104,7 @@ static alpm_pkghash_t *scan_for_targets(alpm_pkghash_t *cache, int dirfd, DIR *d
     const struct dirent *dp;
 
     for (dp = readdir(dirp); dp; dp = readdir(dirp)) {
-        if (!is_file(dp->d_type))
+        if (!is_file(dp))
             continue;
 
         struct pkg *pkg = load_from_file(dirfd, dp->d_name);
@@ -107,6 +135,10 @@ alpm_pkghash_t *get_filecache(int dirfd, alpm_list_t *targets, const char *arch)
 
     _cleanup_closedir_ DIR *dirp = fdopendir(dupfd);
     check_null(dirp, "fdopendir failed");
+
+#ifdef __QNX__
+    dircntl(dirp, D_SETFLAG, D_FLAG_STAT);
+#endif
 
     size_t size = get_filecache_size(dirp);
     alpm_pkghash_t *cache = _alpm_pkghash_create(size);
